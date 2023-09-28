@@ -20,6 +20,8 @@ import android.os.Looper;
 import android.provider.Settings;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.View;
+import android.widget.Button;
 
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationCallback;
@@ -30,8 +32,11 @@ import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.CameraPosition;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.Marker;
+import com.google.android.gms.maps.model.MarkerOptions;
 import com.ignacio.godrive.R;
 import com.ignacio.godrive.actividades.PrincipalActividad;
 import com.ignacio.godrive.includes.MyToolBar;
@@ -45,7 +50,10 @@ public class MapaConductorActividad extends AppCompatActivity implements OnMapRe
     private LocationRequest locationRequest;
     private FusedLocationProviderClient fusedLocationProviderClient;
     private final static int LOCATION_REQUEST_CODE = 1;
-    private final static int SETTINGS_REQUEST_CODE = 2;
+    private final static int SETTINGS_REQUEST_CODE = 1;
+    private Marker marker;
+    private Button botonConductor;
+    private boolean conductorActivo = false;
 
     // Callback para manejar actualizaciones de ubicación
     LocationCallback locationCallback = new LocationCallback() {
@@ -53,6 +61,18 @@ public class MapaConductorActividad extends AppCompatActivity implements OnMapRe
         public void onLocationResult(LocationResult locationResult) {
             for (Location location : locationResult.getLocations()) {
                 if (getApplicationContext() != null) {
+
+                    if (marker != null){
+                        marker.remove();
+                    }
+
+                    marker = mapa.addMarker(new MarkerOptions().position(
+                            new LatLng(location.getLatitude(), location.getLongitude())
+                    )
+                                    .title("Tu posicion")
+                                    .icon(BitmapDescriptorFactory.fromResource(R.drawable.icono_auto))
+                    );
+
                     // Actualiza la cámara del mapa a la ubicación actual
                     mapa.moveCamera(CameraUpdateFactory.newCameraPosition(
                             new CameraPosition.Builder()
@@ -76,6 +96,18 @@ public class MapaConductorActividad extends AppCompatActivity implements OnMapRe
         fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this);
         mapaFragmento = (SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.mapa);
         mapaFragmento.getMapAsync(this);
+        botonConductor = findViewById(R.id.btnConectarse);
+        botonConductor.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                if (conductorActivo){
+                    desconectado();
+                }
+                else {
+                    startLocation();
+                }
+            }
+        });
     }
 
     @Override
@@ -83,14 +115,12 @@ public class MapaConductorActividad extends AppCompatActivity implements OnMapRe
         mapa = googleMap;
         mapa.setMapType(GoogleMap.MAP_TYPE_NORMAL);
         mapa.getUiSettings().setZoomControlsEnabled(true);
-
         locationRequest = new LocationRequest();
         locationRequest.setInterval(1000);
         locationRequest.setFastestInterval(1000);
         locationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
         locationRequest.setSmallestDisplacement(5);
 
-        startLocation();
     }
 
     // Maneja las respuestas a las solicitudes de permisos
@@ -103,6 +133,7 @@ public class MapaConductorActividad extends AppCompatActivity implements OnMapRe
                     if (gpsActived()){
                         // Solicita actualizaciones de ubicación
                         fusedLocationProviderClient.requestLocationUpdates(locationRequest, locationCallback, Looper.myLooper());
+                        mapa.setMyLocationEnabled(true);
                     }
                     else {
                         showAlertDialogNOGPS();
@@ -125,6 +156,7 @@ public class MapaConductorActividad extends AppCompatActivity implements OnMapRe
                 return;
             }
             fusedLocationProviderClient.requestLocationUpdates(locationRequest, locationCallback, Looper.myLooper());
+            mapa.setMyLocationEnabled(true);
         }
         else{
             showAlertDialogNOGPS();
@@ -155,14 +187,24 @@ public class MapaConductorActividad extends AppCompatActivity implements OnMapRe
         return isActive;
     }
 
+    private void desconectado(){
+        botonConductor.setText("Conectarse");
+        conductorActivo = false;
+        if (fusedLocationProviderClient != null){
+            fusedLocationProviderClient.removeLocationUpdates(locationCallback);
+        }
+    }
 
     // Verifica si el GPS está activado
     private void startLocation(){
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M){
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED){
                 if (gpsActived()){
+                    botonConductor.setText("Desconectarse");
+                    conductorActivo = true;
                     // Solicita actualizaciones de ubicación
                     fusedLocationProviderClient.requestLocationUpdates(locationRequest, locationCallback, Looper.myLooper());
+                    mapa.setMyLocationEnabled(true);
                 }
                 else {
                     showAlertDialogNOGPS();
@@ -221,11 +263,11 @@ public class MapaConductorActividad extends AppCompatActivity implements OnMapRe
     }
 
     void cerrarSesion(){
+        desconectado();
         proveedoresAutenticacion.cerrarSesion();
         Intent intent = new Intent(MapaConductorActividad.this, PrincipalActividad.class);
         startActivity(intent);
         finish();
     }
-
 }
 

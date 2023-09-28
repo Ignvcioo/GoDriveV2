@@ -63,7 +63,7 @@
                 android:fontFamily="@font/fuente_secundaria"
                 android:textAllCaps="false"
                 android:elevation="0dp"
-                android:stateListAnimator="@null"/>
+                android:stateListAnimator="@null" />
 
             <Button
                 android:id="@+id/btnCliente"
